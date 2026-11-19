@@ -22,7 +22,7 @@ npx skills add tjtoo04/understand-your-changes --skill quiz-changes
 
 *Before everything else — while the change is still unfamiliar.*
 
-The agent fixes the change set (uncommitted work first, then the branch), reads each file in context, and explains it in plain words: what the change does, why each file is different, and which architecture it touches. Then it draws an ASCII data-flow diagram that marks every node and edge as added, changed, or already there, so the new code stands out at a glance. It ends by offering `quiz-changes` or `clarify-changes`.
+The agent fixes the change set (uncommitted work first, then the branch), reads each file in context, and writes a browser report: what the change does, why each file is different, which architecture it touches, and a data-flow diagram where every node is marked `+ added`, `~ changed`, `= already there` or `− deleted`. A sidebar carries the change set, jump links, the status key and the recommended next step. Chat gets the short version — scope, shape, per-file table, and the path to the report.
 
 Triggers: "explain my changes", "walk me through this diff", "what did this branch actually do".
 
@@ -56,6 +56,7 @@ None of them is a code review — they check *your* understanding, not the code'
 
 - Any agent supporting the [Agent Skills](https://agentskills.io) format (Claude Code, Codex, Cursor, OpenCode, pi, and 30+ more).
 - `git` CLI in the target repository.
+- `understanding-changes` writes a self-contained HTML file to the OS temp directory and opens it with `xdg-open` / `open` / `start`. No server and no network access.
 - `quiz-changes` optionally uses structured-question and todo tools (`rpiv-ask-user-question`, `rpiv-todo` in [pi](https://pi.dev)); agents without them fall back to plain chat for the same flow.
 
 ## Repo layout
@@ -67,7 +68,8 @@ skills/
 ├── quiz-changes/
 │   └── SKILL.md
 └── understanding-changes/
-    └── SKILL.md
+    ├── SKILL.md
+    └── report-template.html
 ```
 
 ## License

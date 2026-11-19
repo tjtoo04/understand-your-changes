@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>understanding-changes</title>
+<style>
+  :root {
+    --paper: #FDFDFC;
+    --panel: #F2F3F1;
+    --ink: #17181A;
+    --muted: #5F646B;
+    --line: #DCDED9;
+    --added: #1E7A46;   --added-bg: #E7F4EC;
+    --changed: #8A5A00; --changed-bg: #FBF0D9;
+    --same: #5B6068;    --same-bg: #EDEEEB;
+    --deleted: #A3282E; --deleted-bg: #FBEAEA;
+    --serif: Charter, "Bitstream Charter", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #141518;
+      --panel: #1B1D21;
+      --ink: #E9EAE7;
+      --muted: #9BA1A8;
+      --line: #2C2F34;
+      --added: #74D392;   --added-bg: rgba(116,211,146,.13);
+      --changed: #E3B664; --changed-bg: rgba(227,182,100,.13);
+      --same: #A0A6AE;    --same-bg: rgba(160,166,174,.12);
+      --deleted: #F09393; --deleted-bg: rgba(240,147,147,.12);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: var(--serif); font-size: 16px; line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  code, .path, .sym, .meta, nav a, .chip, .edge, .note { font-family: var(--mono); }
+  .mono { font-family: var(--mono); font-size: .92em; }
+
+  .shell { display: grid; grid-template-columns: 268px minmax(0, 1fr); }
+
+  /* ---------- sidebar ---------- */
+  .side {
+    position: sticky; top: 0; align-self: start;
+    height: 100vh; overflow-y: auto;
+    background: var(--panel); border-right: 1px solid var(--line);
+    padding: 26px 22px 34px;
+    font-family: var(--sans); font-size: 13px;
+  }
+  .brand { font-family: var(--serif); font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
+  .brand span { color: var(--muted); font-weight: 400; }
+  .meta { margin: 14px 0 22px; line-height: 1.7; color: var(--muted); font-size: 12.5px; }
+  .meta .repo { color: var(--ink); font-size: 12.5px; word-break: break-all; }
+  .meta .cmp { word-break: break-word; margin-top: 2px; }
+  .meta b { color: var(--added); font-weight: 600; }
+  .meta i { color: var(--deleted); font-style: normal; font-weight: 600; }
+  .meta dl { display: grid; grid-template-columns: auto 1fr; gap: 1px 12px; margin: 10px 0 0; }
+  .meta dt { color: var(--muted); }
+  .meta dd { margin: 0; color: var(--ink); white-space: nowrap; }
+
+  nav { display: flex; flex-direction: column; gap: 1px; }
+  nav a {
+    color: var(--muted); text-decoration: none; font-size: 12.5px;
+    padding: 5px 9px; margin-left: -9px; border-radius: 4px;
+    border-left: 2px solid transparent;
+  }
+  nav a:hover { color: var(--ink); background: rgba(127,127,127,.09); }
+  nav a.on { color: var(--ink); border-left-color: var(--ink); background: transparent; }
+  nav a:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+
+  .legend { margin: 24px 0 0; display: flex; flex-wrap: wrap; gap: 5px; }
+  .next { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .next .nl { color: var(--muted); font-size: 11.5px; }
+  .next .nn { font-family: var(--mono); font-size: 13px; margin-top: 3px; }
+  .next .nw { color: var(--muted); font-size: 12px; margin-top: 4px; line-height: 1.45; }
+
+  /* ---------- main ---------- */
+  main { padding: 44px 56px 96px; max-width: 1080px; }
+  .top h1 { font-size: 30px; line-height: 1.2; letter-spacing: -.02em; margin: 0 0 6px; font-weight: 600; }
+  .top .sub { color: var(--muted); font-size: 14px; margin: 0; }
+  section { scroll-margin-top: 24px; padding-top: 34px; margin-top: 34px; border-top: 1px solid var(--line); }
+  section:first-of-type { border-top: 0; }
+  h2 { font-size: 19px; font-weight: 600; letter-spacing: -.01em; margin: 0 0 18px; }
+  .none { color: var(--muted); font-style: italic; margin: 0; }
+
+  ul.plain { margin: 0; padding-left: 20px; }
+  ul.plain li { margin: 0 0 7px; }
+
+  /* ---------- tables ---------- */
+  .tw { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  th {
+    text-align: left; font-family: var(--sans); font-size: 12px; font-weight: 600;
+    color: var(--muted); padding: 0 14px 8px 0; border-bottom: 1px solid var(--line);
+  }
+  td { padding: 11px 14px 11px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td:last-child, th:last-child { padding-right: 0; }
+  td.f { font-family: var(--mono); font-size: 12.5px; word-break: break-all; width: 30%; }
+  td.s { width: 128px; }
+  td.w { width: 30%; }
+  td .why { color: var(--muted); }
+  td .inferred { color: var(--changed); }
+  td .unknown { color: var(--deleted); }
+
+  /* ---------- flow ---------- */
+  figure.flow { margin: 0 0 34px; }
+  figure.flow figcaption {
+    font-family: var(--sans); font-size: 12px; color: var(--muted); margin-bottom: 14px;
+  }
+  .spine { position: relative; padding-left: 44px; }
+  .spine::before {
+    content: ""; position: absolute; left: 11px; top: 14px; bottom: 14px;
+    width: 1px; background: var(--muted); opacity: .45;
+  }
+  .edge {
+    position: relative; color: var(--muted); font-size: 11.5px;
+    margin: 0 0 8px; padding-left: 2px;
+  }
+  .edge::before {
+    content: "↓"; position: absolute; left: -33px; color: var(--muted);
+  }
+  .node {
+    position: relative; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+    padding: 10px 14px; border: 1px solid var(--line); border-left: 3px solid var(--st, var(--same));
+    border-radius: 6px; background: var(--paper); margin: 0 0 8px;
+    max-width: 620px;
+  }
+  .node::before {
+    content: ""; position: absolute; left: -33px; top: 50%; width: 30px; height: 1px;
+    background: var(--muted); opacity: .45;
+  }
+  .node.actor {
+    border: 1px dashed var(--line); border-left: 3px solid var(--line);
+    font-family: var(--mono); font-size: 12.5px; color: var(--muted);
+    background: transparent; max-width: 220px;
+  }
+  .node .path { font-size: 12.5px; }
+  .node .sym { font-size: 12.5px; color: var(--muted); }
+  .branch {
+    position: relative; margin: 0 0 10px; padding: 8px 14px; max-width: 560px;
+    border: 1px dashed var(--line); border-left: 3px solid var(--st, var(--same));
+    border-radius: 6px; background: transparent; font-size: 12.5px;
+  }
+  .branch::before {
+    content: ""; position: absolute; left: -33px; top: 50%; width: 30px; height: 1px;
+    background: var(--muted); opacity: .45;
+  }
+  .branch .note { color: var(--muted); }
+
+  /* ---------- chips ---------- */
+  .chip {
+    display: inline-block; font-size: 11px; line-height: 1.6; padding: 0 6px;
+    border-radius: 3px; white-space: nowrap; font-weight: 500;
+  }
+  .chip.added   { color: var(--added);   background: var(--added-bg); }
+  .chip.changed { color: var(--changed); background: var(--changed-bg); }
+  .chip.same    { color: var(--same);    background: var(--same-bg); }
+  .chip.deleted { color: var(--deleted); background: var(--deleted-bg); }
+  .st-added   { --st: var(--added); }
+  .st-changed { --st: var(--changed); }
+  .st-same    { --st: var(--same); }
+  .st-deleted { --st: var(--deleted); }
+
+  /* ---------- watch ---------- */
+  ul.watch { list-style: none; margin: 0; padding: 0; }
+  ul.watch li {
+    padding: 2px 0 2px 16px; border-left: 2px solid var(--changed);
+    margin: 0 0 10px; max-width: 680px;
+  }
+
+  .fail {
+    margin: 40px 56px; padding: 18px 20px; border-radius: 6px;
+    border: 1px solid var(--deleted); background: var(--deleted-bg); color: var(--deleted);
+    font-family: var(--mono); font-size: 13px; white-space: pre-wrap;
+  }
+
+  @media (max-width: 900px) {
+    .shell { grid-template-columns: 1fr; }
+    .side { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+    nav { flex-direction: row; flex-wrap: wrap; gap: 4px; }
+    nav a { border-left: 0; border-bottom: 2px solid transparent; margin-left: 0; }
+    nav a.on { border-left: 0; border-bottom-color: var(--ink); }
+    main { padding: 30px 22px 64px; }
+    .top h1 { font-size: 24px; }
+  }
+  @media (max-width: 640px) {
+    .tw table, .tw thead, .tw tbody, .tw tr, .tw td { display: block; }
+    .tw thead { display: none; }
+    .tw tr { border-bottom: 1px solid var(--line); padding: 14px 0 8px; }
+    .tw td { border: 0; padding: 0 0 7px; width: auto; }
+    .tw td::before {
+      display: block; font-family: var(--sans); font-size: 11px; color: var(--muted); margin-bottom: 1px;
+    }
+    #files td:nth-child(1)::before { content: "File"; }
+    #files td:nth-child(2)::before { content: "Status"; }
+    #files td:nth-child(3)::before { content: "What changed"; }
+    #files td:nth-child(4)::before { content: "Why"; }
+    #arch td:nth-child(1)::before { content: "Area"; }
+    #arch td:nth-child(2)::before { content: "Before"; }
+    #arch td:nth-child(3)::before { content: "After"; }
+    #arch td:nth-child(4)::before { content: "Consequence"; }
+    .node, .branch { max-width: none; }
+    .spine { padding-left: 30px; }
+    .spine::before { left: 8px; }
+    .node::before, .branch::before { left: -22px; width: 19px; }
+    .edge::before { left: -22px; }
+  }
+  @media print {
+    .side { display: none; }
+    .shell { display: block; }
+    main { padding: 0; max-width: none; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side" id="side"></aside>
+  <main id="main"></main>
+</div>
+
+<!-- SCHEMA: this object is the contract. Copy its keys. Plain text only, no markdown. -->
+<script type="application/json" id="report">
+{
+  "repo": "acme/api",
+  "compare": "feat/ratelimit vs main",
+  "files": 6,
+  "added": 312,
+  "removed": 48,
+  "shape": [
+    "Adds a per-user rate limit in front of the reply endpoint.",
+    "Core of the change: api/ratelimit.py, called from api/router.py.",
+    "Streaming flush changes from fire-and-forget to awaited, so the limit can be counted after the last chunk."
+  ],
+  "perFile": [
+    {"file": "api/router.py", "status": "changed", "what": "Calls check_bucket() before the gateway call, and returns 429 when the bucket is empty.", "why": "Commit a1b2c3d adds the limit at the only entry point that reaches gateway.reply()."},
+    {"file": "api/ratelimit.py", "status": "added", "what": "Token bucket keyed by user id, with a 60-request window.", "why": "inferred: new module, no caller existed before, so the limit needed a home."},
+    {"file": "ai_server/streaming.py", "status": "changed", "what": "flush() is now awaited by the caller.", "why": "The counter must run after the last chunk. Fire-and-forget lost the count."},
+    {"file": "tests/test_ratelimit.py", "status": "added", "what": "Three tests: allow under limit, block at limit, refill after the window.", "why": "Pins the new behaviour."}
+  ],
+  "architecture": [
+    {"area": "Request path", "before": "router called the gateway directly.", "after": "router calls a limiter, then the gateway.", "consequence": "Every new route must opt in to the limiter."},
+    {"area": "Streaming contract", "before": "flush() returned before the stream drained.", "after": "The caller awaits flush().", "consequence": "Reply latency now includes the drain."}
+  ],
+  "flows": [
+    {
+      "title": "Reply request",
+      "steps": [
+        {"kind": "actor", "label": "client"},
+        {"kind": "node", "file": "api/router.py", "sym": "handle_reply", "status": "changed", "edge": "POST /v1/reply"},
+        {"kind": "branch", "file": "api/ratelimit.py", "sym": "check_bucket()", "status": "added", "note": "over limit → 429"},
+        {"kind": "node", "file": "ai_server/gateway.py", "sym": "reply()", "status": "same"},
+        {"kind": "node", "file": "ai_server/streaming.py", "sym": "flush()", "status": "changed", "edge": "awaited"}
+      ]
+    }
+  ],
+  "watch": [
+    "The limit is counted after the stream drains. A client that disconnects early is never counted.",
+    "No migration here, but the bucket lives in memory. A second replica doubles the effective limit.",
+    "tests/test_ratelimit.py covers the allow and block paths only. Refill after the window is untested."
+  ],
+  "next": {"recommend": "quiz-changes", "reason": "The work is not committed yet."}
+}
+</script>
+<script>
+(function () {
+  var RAW = document.querySelector('#report').textContent;
+  var SYN = {
+    added: 'added', new: 'added', created: 'added',
+    changed: 'changed', modified: 'changed', updated: 'changed',
+    same: 'same', unchanged: 'same', existing: 'same', kept: 'same', untouched: 'same',
+    deleted: 'deleted', removed: 'deleted', gone: 'deleted'
+  };
+  var GLYPH = { added: '+', changed: '~', same: '=', deleted: '−' };
+  var WORD = { added: 'added', changed: 'changed', same: 'already there', deleted: 'deleted' };
+  var NAV = [
+    ['shape', 'Shape of the change'],
+    ['files', 'Per-file'],
+    ['arch', 'Architecture'],
+    ['flow', 'Data flow'],
+    ['watch', 'Watch list']
+  ];
+
+  function esc(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  // Every interpolated value passes through esc(), so this markup is inert text.
+  function setHTML(el, html) {
+    var doc = new DOMParser().parseFromString('<!doctype html><body>' + html + '</body>', 'text/html');
+    var nodes = Array.prototype.slice.call(doc.body.childNodes);
+    el.replaceChildren.apply(el, nodes);
+  }
+  function norm(s) {
+    return SYN[String(s == null ? '' : s).toLowerCase().trim()] || 'changed';
+  }
+  function chip(status) {
+    var k = norm(status);
+    return '<span class="chip ' + k + '">' + GLYPH[k] + ' ' + WORD[k] + '</span>';
+  }
+  function list(items) {
+    if (!items || !items.length) return '<p class="none">none</p>';
+    return '<ul class="plain">' + items.map(function (t) {
+      return '<li>' + esc(t) + '</li>';
+    }).join('') + '</ul>';
+  }
+  function emptyTable() {
+    return '<p class="none">none</p>';
+  }
+
+  function side(d) {
+    var links = NAV.map(function (n) {
+      return '<a href="#' + n[0] + '" data-s="' + n[0] + '">' + esc(n[1]) + '</a>';
+    }).join('');
+    var legend = ['added', 'changed', 'same', 'deleted'].map(chip).join('');
+    var next = d.next || {};
+    var nums = '';
+    if (d.files != null) nums += '<dt>files</dt><dd>' + esc(d.files) + '</dd>';
+    if (d.added != null || d.removed != null) {
+      nums += '<dt>lines</dt><dd><b>+' + esc(d.added == null ? 0 : d.added) + '</b> <i>−' +
+        esc(d.removed == null ? 0 : d.removed) + '</i></dd>';
+    }
+    var nextBlock = '';
+    if (next.recommend) {
+      nextBlock = '<div class="next"><div class="nl">Next step</div>' +
+        '<div class="nn">/' + esc(next.recommend) + '</div>' +
+        (next.reason ? '<div class="nw">' + esc(next.reason) + '</div>' : '') +
+        '</div>';
+    }
+    return '<div class="brand">understanding<span>-changes</span></div>' +
+      '<div class="meta">' +
+        '<div class="repo">' + esc(d.repo || 'repository') + '</div>' +
+        (d.compare ? '<div class="cmp">' + esc(d.compare) + '</div>' : '') +
+        '<dl>' + nums + '</dl>' +
+      '</div>' +
+      '<nav id="nav">' + links + '</nav>' +
+      '<div class="legend">' + legend + '</div>' +
+      nextBlock;
+  }
+
+  function perFileTable(rows) {
+    if (!rows || !rows.length) return emptyTable();
+    var body = rows.map(function (r) {
+      var why = String(r.why == null ? '' : r.why);
+      var kind = '';
+      if (/^inferred\s*:/i.test(why)) kind = 'inferred';
+      else if (/^unknown/i.test(why)) kind = 'unknown';
+      return '<tr><td class="f">' + esc(r.file) + '</td>' +
+        '<td class="s">' + chip(r.status) + '</td>' +
+        '<td class="w">' + esc(r.what) + '</td>' +
+        '<td><span class="why ' + kind + '">' + esc(why) + '</span></td></tr>';
+    }).join('');
+    return '<div class="tw"><table><thead><tr><th>File</th><th>Status</th><th>What changed</th><th>Why</th></tr></thead>' +
+      '<tbody>' + body + '</tbody></table></div>';
+  }
+
+  function archTable(rows) {
+    if (!rows || !rows.length) return emptyTable();
+    var body = rows.map(function (r) {
+      return '<tr><td>' + esc(r.area) + '</td><td>' + esc(r.before) + '</td>' +
+        '<td>' + esc(r.after) + '</td><td>' + esc(r.consequence) + '</td></tr>';
+    }).join('');
+    return '<div class="tw"><table><thead><tr><th>Area</th><th>Before</th><th>After</th><th>Consequence</th></tr></thead>' +
+      '<tbody>' + body + '</tbody></table></div>';
+  }
+
+  function flow(f) {
+    var steps = f.steps || [];
+    var rows = [];
+    steps.forEach(function (s) {
+      if (norm0(s.kind) === 'branch' && rows.length) {
+        rows.at(-1).branches.push(s);
+      } else {
+        rows.push({ main: s, branches: [] });
+      }
+    });
+
+    var html = rows.map(function (r, i) {
+      var s = r.main;
+      var st = norm(s.status);
+      var isActor = norm0(s.kind) === 'actor';
+      var out = '';
+      if (s.edge) out += '<div class="edge"><span>' + esc(s.edge) + '</span></div>';
+      if (isActor) {
+        out += '<div class="node actor">' + esc(s.label || s.sym || s.file) + '</div>';
+      } else {
+        out += '<div class="node st-' + st + '">' +
+          (s.file ? '<span class="path">' + esc(s.file) + '</span>' : '') +
+          (s.sym ? '<span class="sym">' + esc(s.sym) + '</span>' : '') +
+          (s.label ? '<span class="sym">' + esc(s.label) + '</span>' : '') +
+          chip(s.status) + '</div>';
+      }
+      r.branches.forEach(function (b) {
+        var bs = norm(b.status);
+        out += '<div class="branch st-' + bs + '">' +
+          (b.file ? '<span class="path">' + esc(b.file) + '</span> ' : '') +
+          (b.sym ? '<span class="sym">' + esc(b.sym) + '</span> ' : '') +
+          (b.note ? '<span class="note">' + esc(b.note) + '</span> ' : '') +
+          chip(b.status) + '</div>';
+      });
+      return out;
+    }).join('');
+
+    return '<figure class="flow">' +
+      (f.title ? '<figcaption>' + esc(f.title) + '</figcaption>' : '') +
+      '<div class="spine">' + html + '</div></figure>';
+  }
+  function norm0(v) { return String(v == null ? '' : v).toLowerCase().trim(); }
+
+  function main(d) {
+    var flows = (d.flows || []).filter(Boolean).map(flow).join('');
+    var watch = d.watch && d.watch.length
+      ? '<ul class="watch">' + d.watch.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul>'
+      : '<p class="none">none</p>';
+    var sub = [d.repo, d.compare].filter(Boolean).map(esc).join(' — ');
+    return '<header class="top"><h1>What this change does</h1>' +
+      (sub ? '<p class="sub">' + sub + '</p>' : '') + '</header>' +
+      '<section id="shape"><h2>Shape of the change</h2>' + list(d.shape) + '</section>' +
+      '<section id="files"><h2>Per-file</h2>' + perFileTable(d.perFile) + '</section>' +
+      '<section id="arch"><h2>Architecture</h2>' + archTable(d.architecture) + '</section>' +
+      '<section id="flow"><h2>Data flow</h2>' +
+        (flows || '<p class="none">none</p>') + '</section>' +
+      '<section id="watch"><h2>Watch list</h2>' + watch + '</section>';
+  }
+
+  function spy() {
+    var links = document.querySelectorAll('nav a[data-s]');
+    var secs = [].map.call(links, function (a) { return document.querySelector('#' + a.dataset.s); });
+    if (!('IntersectionObserver' in window)) return;
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        [].forEach.call(links, function (a) {
+          a.classList.toggle('on', a.dataset.s === e.target.id);
+        });
+      });
+    }, { rootMargin: '-15% 0px -70% 0px' });
+    secs.forEach(function (s) { if (s) io.observe(s); });
+  }
+
+  try {
+    var d = JSON.parse(RAW);
+    setHTML(document.querySelector('#side'), side(d));
+    setHTML(document.querySelector('#main'), main(d));
+    document.title = 'understanding-changes · ' + (d.repo || '');
+    spy();
+  } catch (err) {
+    setHTML(document.querySelector('#main'),
+      '<div class="fail">The report data is not valid JSON.\n' + esc(err.message) +
+      '\nFix the object inside the script tag with id="report".</div>');
+  }
+})();
+</script>
+</body>
+</html>

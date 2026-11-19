@@ -1,11 +1,13 @@
 ---
 name: understanding-changes
-description: Use when the user wants to understand changes before reviewing, committing, or merging them — "explain my changes", "walk me through this diff", "what did this branch actually do", "help me understand this PR", "I forgot what I built". Produces a plain-language per-file explanation with the reason for each change, architecture notes, and a data-flow diagram marked to show what already existed, what was added, and what changed, then offers to run quiz-changes or clarify-changes. Not a code-quality review, and not a test of the developer's recall.
+description: Use when the user wants to understand changes before reviewing, committing, or merging them — "explain my changes", "walk me through this diff", "what did this branch actually do", "help me understand this PR", "I forgot what I built". Produces a browser report with a sidebar, a plain-language per-file explanation, architecture notes, and a data-flow diagram marked to show what already existed, what was added, and what changed, then offers to run quiz-changes or clarify-changes. Not a code-quality review, and not a test of the developer's recall.
 ---
 
 # Understanding Changes
 
 Turn a diff into a mental model that the developer can hold. The skill answers three questions, in order. What the change does. Why each file is different. How data moves now.
+
+The output is an HTML report that opens in the browser. Chat carries a short summary and the handoff question.
 
 This skill **tells** the developer what the change is. `clarify-changes` and `quiz-changes` **test** the developer. Run this skill first when the change is still unfamiliar.
 
@@ -33,101 +35,86 @@ git diff HEAD --stat
 ## Step 1 — Read the hunks in context
 Read the current file around each changed hunk. Never explain a change from the diff alone.
 
-Look for the reason in this order. First the commit message, then the PR body. Then a test that pins the new behaviour. Then a caller that needed it. Then a comment. Stop at the first confirmed source.
+Look for the reason in this order. First the commit message, then the PR body. Then a test that pins the new behaviour. Then a caller that needed it. Then a comment.
 
 ## Step 2 — Shape of the change
-Before the tables, write 2–4 bullets that state the theme. Is this a feature, a fix, a refactor, a migration, or wiring? Name the one or two files that carry the core of it. Give the size: N files, +X/−Y lines.
+Write 2–4 bullets that state the theme. Is this a feature, a fix, a refactor, a migration, or wiring? Name the one or two files that carry the core of it.
 
-## Step 3 — Per-file table
-Write one row for each file. Order the rows by blast radius: entry points and core logic first, lockfiles and generated files last.
+## Step 3 — Fill the report data
+The per-file table is the spine of the report. Write one entry for each file. Order the entries by blast radius: entry points and core logic first, lockfiles and generated files last.
 
-| File           | Status                              | What changed                 | Why (source)                                  |
-| -------------- | ----------------------------------- | ---------------------------- | --------------------------------------------- |
-| `path/file.py` | added / changed / deleted / renamed | One sentence in plain words. | The reason, with the evidence that proves it. |
+Each entry has four fields:
 
-Rules:
-- If there are more than 8 files, add a bold sub-heading for each group. For example: **Core logic**, **Wiring**, **Tests**, **Generated**.
-- Write one sentence in each cell. Do not recite the diff.
+| Field    | Rule                                                                |
+| -------- | ------------------------------------------------------------------- |
+| `file`   | The path from the repo root. Plain text, no backticks, no markdown. |
+| `status` | One of `added`, `changed`, `same`, `deleted`.                       |
+| `what`   | One sentence in plain words. Do not recite the diff.                |
+| `why`    | The reason, with the evidence that proves it.                       |
+
+For `why`:
 - If the reason is likely but not provable, write `inferred: <reason>`.
 - If no reason is plausible, write `unknown — the diff does not show why`.
 - Never invent a reason. A wrong reason is worse than `unknown`.
 
-## Step 4 — Architecture table
-Cover only the architecture that this change touches.
+Do the same for `architecture` (area, before, after, consequence), `flows`, and `watch` (3–5 heads-ups, not a review).
 
-| Area | Before | After | Consequence |
-| ---- | ------ | ----- | ----------- |
+## Step 4 — Build the HTML report
+`report-template.html` sits next to this file. It holds all the CSS and the rendering script. Do not rewrite it.
 
-Watch for these areas: a new or removed layer. A dependency that changed direction. A new seam or interface. A pattern introduced. A dependency added or removed. A new contract between two modules. If the change adds no architecture, write `none`. Do not drop the table.
+1. Read `report-template.html`.
+2. Replace the JSON object inside `<script type="application/json" id="report">` with your data. The sample object in the template is the schema: keep its keys and its nesting. Change no other byte of the file.
+3. Write the result to the OS temp directory:
+   - `${TMPDIR:-/tmp}/understand-changes-<repo>-<ref>.html`
+   - Build the name from the repo folder and the branch, in lower case. Spaces become `-`. Keep `[a-z0-9._-]` only. Cut the name at 60 characters.
+4. Open the file with the OS opener. Use `xdg-open <path>` on Linux, `open <path>` on macOS, and `start "" <path>` on Windows. Do not start an HTTP server.
+5. If the opener fails, keep the file and print the path. Do not retry with another tool.
+6. Check the page. A red banner means the JSON did not parse. Fix the object and open the file again.
 
-## Step 5 — Data-flow diagram
-Draw the flow that the diff touches. Mark every node and every edge, so the reader sees the new code at a glance.
+### Flow steps
+A flow is a list of steps, drawn top to bottom. Start at the entry point. End at the side effect: a response, a write, a message, or a file.
 
-Print this legend before each diagram:
-
-```text
-LEGEND   [+] added     [~] changed     [=] already there
-         --> existing flow            ==> new flow          -.-> changed flow
-```
+| Key           | Rule                                                                                |
+| ------------- | ----------------------------------------------------------------------------------- |
+| `kind`        | `actor` for a person or a client. `node` for code. `branch` for a conditional path. |
+| `file`, `sym` | The code location. Every node must be checkable in the code.                        |
+| `status`      | The same four values. Mark what the diff did to this node.                          |
+| `edge`        | The label on the arrow that enters this node.                                       |
 
 Rules:
-- Draw top-down. Start at the entry point. End at the side effect: a response, a write, a message, or a file.
-- Put the file or symbol in each node label. Every node must be checkable in the code.
-- Keep each diagram at 15 nodes or fewer. Split a large change into one diagram for each flow.
-- Show the nodes that the change touches, plus the neighbours that give them meaning. Leave out unrelated code.
-- Draw a second diagram when the change crosses a boundary, for example client → service, or service → queue → worker.
+- A `branch` step attaches to the step above it.
+- Mark every node and every branch. An unmarked node hides the new code.
+- Keep each flow at 8 steps or fewer. Use a second flow for a second path.
+- Show the nodes that the change touches, plus the neighbours that give them meaning.
 
-Example:
+## Step 5 — Reply in chat
+Keep it short. Five parts, in this order:
+1. Scope line — the change set, the file count, +X/−Y.
+2. Shape of the change — the bullets from Step 2.
+3. Per-file table — the same four columns as the report.
+4. The absolute path of the report, on its own line.
+5. The handoff question from Step 6.
 
-```text
-LEGEND   [+] added     [~] changed     [=] already there
+The architecture table, the diagram, and the watch list stay in the report. Do not print them again in chat. Do not paste the HTML or the JSON.
 
-client
-  │ POST /v1/reply
-  ▼
-[~] api/router.py  handle_reply
-  │
-  ├──► [+] api/ratelimit.py  check_bucket() ──► 429 when over limit
-  ▼
-[=] ai_server/gateway.py  reply()
-  ▼
-[~] ai_server/streaming.py  flush()   was fire-and-forget, now awaited
-```
-
-Then write one short paragraph. Read the diagram from the top and state what changed in the flow, in two to four sentences.
-
-## Step 6 — Watch list
-Write three to five bullets. State what the reader must know before they ship. Examples: migration order, a flag, a rollback problem, an untested path, a missing caller update. This is a heads-up, not a review.
-
-## Step 7 — Hand off
+## Step 6 — Hand off
 Ask one question as the last action: does the user want `/quiz-changes` or `/clarify-changes`?
 
 - `/quiz-changes` — asks questions about the working tree. Use it when the work is not committed.
 - `/clarify-changes` — asks the user to explain the branch in their own words. Use it when the branch is committed.
 
-Recommend `quiz-changes` when the change set is uncommitted. Else recommend `clarify-changes`. State the reason in one short clause.
+Recommend `quiz-changes` when the change set is uncommitted. Else recommend `clarify-changes`. Put the same recommendation in the `next` field of the report, so the sidebar and the chat agree.
 
 Use the structured-question tool when it exists (`rpiv-ask-user-question` in pi). Else ask in plain chat. Offer three options: quiz-changes, clarify-changes, neither. If the user picks neither, stop. Do not ask twice.
 
-## Output contract
-The reply contains these parts, in this order:
-
-1. Scope line — the change set, the file count, +X/−Y.
-2. Shape of the change — bullets.
-3. Per-file table.
-4. Architecture table.
-5. Data-flow diagram with the legend, then the read-out paragraph.
-6. Watch list.
-7. The handoff question.
-
-If a part has no content, write `none`. Never drop a part. Keep the whole reply near 120 lines. Do not repeat the diff.
-
 ## Common Mistakes
 - Explaining from the diff alone — read the file around each hunk.
-- Prose walls — use the tables and the bullets.
-- Unmarked diagrams — the reader cannot tell the new code from the old code.
+- Rewriting the template CSS — the template is the design. Change only the JSON.
+- Pasting HTML or JSON into chat — print the path.
+- Unmarked nodes in the flow — the reader cannot tell the new code from the old code.
 - A reason built from a plausible story — mark it `inferred`, or write `unknown`.
 - Explaining every file at the same depth — order by blast radius and go deeper on the core.
 - Listing the edits — state what the change does, not which lines moved.
+- Starting an HTTP server, or retrying the opener with another tool.
 - Skipping the handoff, or asking for it twice.
 - Forgetting untracked files, lockfiles, and migrations.
