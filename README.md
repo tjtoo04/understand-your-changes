@@ -1,8 +1,8 @@
 # understand-your-changes
 
-Two agent skills that make you prove you understand your own git changes before you ship them — in your own words, graded against the actual diff.
+Three agent skills that make you prove you understand your own git changes before you ship them — in your own words, graded against the actual diff.
 
-Install both with the [skills CLI](https://skills.sh):
+Install all three with the [skills CLI](https://skills.sh):
 
 ```bash
 npx skills add tjtoo04/understand-your-changes
@@ -11,11 +11,20 @@ npx skills add tjtoo04/understand-your-changes
 Or one at a time:
 
 ```bash
+npx skills add tjtoo04/understand-your-changes --skill understanding-changes
 npx skills add tjtoo04/understand-your-changes --skill clarify-changes
 npx skills add tjtoo04/understand-your-changes --skill quiz-changes
 ```
 
 ## Skills
+
+### understanding-changes
+
+*Before everything else — while the change is still unfamiliar.*
+
+The agent fixes the change set (uncommitted work first, then the branch), reads each file in context, and explains it in plain words: what the change does, why each file is different, and which architecture it touches. Then it draws an ASCII data-flow diagram that marks every node and edge as added, changed, or already there, so the new code stands out at a glance. It ends by offering `quiz-changes` or `clarify-changes`.
+
+Triggers: "explain my changes", "walk me through this diff", "what did this branch actually do".
 
 ### clarify-changes
 
@@ -35,12 +44,13 @@ Triggers: "quiz me on my changes", "test me on the diff", "make sure I understan
 
 ## Which one to use
 
-| Situation | Skill |
-|---|---|
-| Branch vs main, prose explanations, architecture rationale | `clarify-changes` |
-| Uncommitted working tree, interactive quiz, commit gate | `quiz-changes` |
+| Situation                                                     | Skill                   |
+| ------------------------------------------------------------- | ----------------------- |
+| The change is unfamiliar — first read, plain words, data flow | `understanding-changes` |
+| Branch vs main, prose explanations, architecture rationale    | `clarify-changes`       |
+| Uncommitted working tree, interactive quiz, commit gate       | `quiz-changes`          |
 
-Neither is a code review — they check *your* understanding, not the code's quality. Use `code-review` for that.
+None of them is a code review — they check *your* understanding, not the code's quality. Use `code-review` for that.
 
 ## Requirements
 
@@ -54,7 +64,9 @@ Neither is a code review — they check *your* understanding, not the code's qua
 skills/
 ├── clarify-changes/
 │   └── SKILL.md
-└── quiz-changes/
+├── quiz-changes/
+│   └── SKILL.md
+└── understanding-changes/
     └── SKILL.md
 ```
 
