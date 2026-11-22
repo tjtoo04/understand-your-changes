@@ -1,11 +1,11 @@
 ---
 name: understanding-changes
-description: Use when the user wants to understand changes before reviewing, committing, or merging them — "explain my changes", "walk me through this diff", "what did this branch actually do", "help me understand this PR", "I forgot what I built". Produces a browser report with a sidebar, a plain-language per-file explanation, architecture notes, and a data-flow diagram marked to show what already existed, what was added, and what changed, then offers to run quiz-changes or clarify-changes. Not a code-quality review, and not a test of the developer's recall.
+description: Use when the user wants to understand changes before reviewing, committing, or merging them — "explain my changes", "walk me through this diff", "what did this branch actually do", "help me understand this PR", "I forgot what I built". Produces a browser report with a sidebar, a plain-language per-file explanation, architecture notes, a feature flow, a data-flow diagram, and an impact table, each marked to show what already existed, what was added, and what changed. Then it offers to run quiz-changes or clarify-changes. Not a code-quality review, and not a test of the developer's recall.
 ---
 
 # Understanding Changes
 
-Turn a diff into a mental model that the developer can hold. The skill answers three questions, in order. What the change does. Why each file is different. How data moves now.
+Turn a diff into a mental model that the developer can hold. The skill answers five questions, in order. What the change does. Why each file is different. Which path the user walks now, and where the change sits on that path. How the data moves. What the change reaches outside the diff.
 
 The output is an HTML report that opens in the browser. Chat carries a short summary and the handoff question.
 
@@ -37,6 +37,8 @@ Read the current file around each changed hunk. Never explain a change from the 
 
 Look for the reason in this order. First the commit message, then the PR body. Then a test that pins the new behaviour. Then a caller that needed it. Then a comment.
 
+For the impact table, also read the callers of each changed symbol and the consumers of each changed contract. A caller outside the diff is the evidence for a row.
+
 ## Step 2 — Shape of the change
 Write 2–4 bullets that state the theme. Is this a feature, a fix, a refactor, a migration, or wiring? Name the one or two files that carry the core of it.
 
@@ -57,7 +59,51 @@ For `why`:
 - If no reason is plausible, write `unknown — the diff does not show why`.
 - Never invent a reason. A wrong reason is worse than `unknown`.
 
-Do the same for `architecture` (area, before, after, consequence), `flows`, and `watch` (3–5 heads-ups, not a review).
+The other fields of the report:
+
+| Field          | Rule                                                                        |
+| -------------- | --------------------------------------------------------------------------- |
+| `architecture` | Rows of `area`, `before`, `after`, `consequence`. The structure that moved. |
+| `featureFlow`  | The path that the user walks. See "Feature flow" below.                     |
+| `flows`        | The path that the data walks. See "Data flow" below.                        |
+| `impact`       | The surfaces that the change reaches. See "Impact" below.                   |
+| `watch`        | 3–5 heads-ups. Not a review.                                                |
+
+### Feature flow
+The feature flow is the path that the user walks to get value. The data flow is the path that the values take through the code. Keep the two apart. The feature flow uses the words of the user. The data flow uses the names of symbols.
+
+Each step has a `label` and a `status`:
+
+| Key            | Rule                                                             |
+| -------------- | ---------------------------------------------------------------- |
+| `label`        | One short sentence. What happens here, in the words of the user. |
+| `status`       | One of `added`, `changed`, `same`, `deleted`.                    |
+| `file`, `sym`  | Optional. The one place in the code that carries this step.      |
+| `kind`, `edge` | The same values as the data flow below.                          |
+
+Rules:
+- Start the flow at what the product already does. Every step that the diff does not touch is `same`, and it stays in the flow. The reader needs the old path to understand the new step.
+- Mark the changed steps `added` or `changed`. Mark the step that loses behaviour `deleted`.
+- End the flow at the value that the user gets, or fails to get.
+- If the diff changes no behaviour, draw one flow with every step in `same`, and write `refactor: no user-visible change` in the title.
+- Keep each flow at 8 steps or fewer. Use a second flow for a second feature path.
+
+### Impact
+The impact table states what the change reaches outside the lines that it edits. Write one row for each surface.
+
+| Key        | Rule                                                                 |
+| ---------- | -------------------------------------------------------------------- |
+| `area`     | The surface: an endpoint, a table, a config key, a caller, or a job. |
+| `status`   | One of `added`, `changed`, `same`, `deleted`.                        |
+| `reach`    | Who or what feels the change. Name them.                             |
+| `effect`   | What happens to them now. State the failure, the cost, or the gain.  |
+| `evidence` | The file and the symbol that proves the row.                         |
+
+Rules:
+- Order the rows from the widest reach to the narrowest.
+- Read these surfaces before you write the table: the public API and its callers, the stored data and the migrations, the config and the environment, the permissions, the performance and the quota, the tests and the CI, and the deploy and the rollback path.
+- Leave out a surface that the change does not reach.
+- The impact table states what the change reaches. The watch list states what the reader must check. Do not write the same item in both.
 
 ## Step 4 — Build the HTML report
 `report-template.html` sits next to this file. It holds all the CSS and the rendering script. Do not rewrite it.
@@ -72,7 +118,7 @@ Do the same for `architecture` (area, before, after, consequence), `flows`, and 
 6. Check the page. A red banner means the JSON did not parse. Fix the object and open the file again.
 
 ### Flow steps
-A flow is a list of steps, drawn top to bottom. Start at the entry point. End at the side effect: a response, a write, a message, or a file.
+Both flows use these keys. A flow is a list of steps, drawn top to bottom. Start at the entry point. End at the side effect: a response, a write, a message, or a file.
 
 | Key           | Rule                                                                                |
 | ------------- | ----------------------------------------------------------------------------------- |
@@ -88,14 +134,16 @@ Rules:
 - Show the nodes that the change touches, plus the neighbours that give them meaning.
 
 ## Step 5 — Reply in chat
-Keep it short. Five parts, in this order:
+Keep it short. Seven parts, in this order:
 1. Scope line — the change set, the file count, +X/−Y.
 2. Shape of the change — the bullets from Step 2.
-3. Per-file table — the same four columns as the report.
-4. The absolute path of the report, on its own line.
-5. The handoff question from Step 6.
+3. Feature flow — one line. What the user could already do, and where the change lands on that path.
+4. Per-file table — the same four columns as the report.
+5. Impact — one line. The surface with the widest reach, and what it now gets.
+6. The absolute path of the report, on its own line.
+7. The handoff question from Step 6.
 
-The architecture table, the diagram, and the watch list stay in the report. Do not print them again in chat. Do not paste the HTML or the JSON.
+The architecture table, the two flows, the impact table, and the watch list stay in the report. Do not print them again in chat. Do not paste the HTML or the JSON.
 
 ## Step 6 — Hand off
 Ask one question as the last action: does the user want `/quiz-changes` or `/clarify-changes`?
@@ -112,6 +160,10 @@ Use the structured-question tool when it exists (`rpiv-ask-user-question` in pi)
 - Rewriting the template CSS — the template is the design. Change only the JSON.
 - Pasting HTML or JSON into chat — print the path.
 - Unmarked nodes in the flow — the reader cannot tell the new code from the old code.
+- A feature flow that starts at the new code — lead with the steps that already work, and mark them `same`.
+- One flow for two jobs — the feature flow speaks in the words of the user, the data flow speaks in code symbols.
+- An impact table that repeats the file list — state what those files now reach.
+- The same item in the impact table and the watch list — impact states the reach, watch states the check.
 - A reason built from a plausible story — mark it `inferred`, or write `unknown`.
 - Explaining every file at the same depth — order by blast radius and go deeper on the core.
 - Listing the edits — state what the change does, not which lines moved.

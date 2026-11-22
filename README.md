@@ -22,7 +22,7 @@ npx skills add tjtoo04/understand-your-changes --skill quiz-changes
 
 *Before everything else — while the change is still unfamiliar.*
 
-The agent fixes the change set (uncommitted work first, then the branch), reads each file in context, and writes a browser report: what the change does, why each file is different, which architecture it touches, and a data-flow diagram where every node is marked `+ added`, `~ changed`, `= already there` or `− deleted`. A sidebar carries the change set, jump links, the status key and the recommended next step. Chat gets the short version — scope, shape, per-file table, and the path to the report.
+The agent fixes the change set (uncommitted work first, then the branch), reads each file in context, and writes a browser report: what the change does, why each file is different, which architecture it touches, a feature flow that keeps the steps that already work beside the new ones, a data-flow diagram, and an impact table of the surfaces the change reaches. Every node and row is marked `+ added`, `~ changed`, `= already there` or `− deleted`. A sidebar carries the change set, jump links, the status key and the recommended next step. Chat gets the short version — scope, shape, the feature-flow line, the per-file table, the impact line, and the path to the report.
 
 Triggers: "explain my changes", "walk me through this diff", "what did this branch actually do".
 
@@ -46,7 +46,7 @@ Triggers: "quiz me on my changes", "test me on the diff", "make sure I understan
 
 | Situation                                                     | Skill                   |
 | ------------------------------------------------------------- | ----------------------- |
-| The change is unfamiliar — first read, plain words, data flow | `understanding-changes` |
+| The change is unfamiliar — first read, plain words, feature flow, data flow | `understanding-changes` |
 | Branch vs main, prose explanations, architecture rationale    | `clarify-changes`       |
 | Uncommitted working tree, interactive quiz, commit gate       | `quiz-changes`          |
 

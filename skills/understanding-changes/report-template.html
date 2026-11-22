@@ -102,6 +102,7 @@
   td { padding: 11px 14px 11px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
   td:last-child, th:last-child { padding-right: 0; }
   td.f { font-family: var(--mono); font-size: 12.5px; word-break: break-all; width: 30%; }
+  td.ev { font-family: var(--mono); font-size: 12px; color: var(--muted); width: 22%; }
   td.s { width: 128px; }
   td.w { width: 30%; }
   td .why { color: var(--muted); }
@@ -142,6 +143,8 @@
   }
   .node .path { font-size: 12.5px; }
   .node .sym { font-size: 12.5px; color: var(--muted); }
+  .node .label { font-family: var(--serif); font-size: 14.5px; }
+  .node .label + .sym { font-size: 12px; }
   .branch {
     position: relative; margin: 0 0 10px; padding: 8px 14px; max-width: 560px;
     border: 1px dashed var(--line); border-left: 3px solid var(--st, var(--same));
@@ -205,6 +208,11 @@
     #arch td:nth-child(2)::before { content: "Before"; }
     #arch td:nth-child(3)::before { content: "After"; }
     #arch td:nth-child(4)::before { content: "Consequence"; }
+    #impact td:nth-child(1)::before { content: "Area"; }
+    #impact td:nth-child(2)::before { content: "Status"; }
+    #impact td:nth-child(3)::before { content: "Reach"; }
+    #impact td:nth-child(4)::before { content: "Effect"; }
+    #impact td:nth-child(5)::before { content: "Evidence"; }
     .node, .branch { max-width: none; }
     .spine { padding-left: 30px; }
     .spine::before { left: 8px; }
@@ -247,6 +255,18 @@
     {"area": "Request path", "before": "router called the gateway directly.", "after": "router calls a limiter, then the gateway.", "consequence": "Every new route must opt in to the limiter."},
     {"area": "Streaming contract", "before": "flush() returned before the stream drained.", "after": "The caller awaits flush().", "consequence": "Reply latency now includes the drain."}
   ],
+  "featureFlow": [
+    {
+      "title": "A user sends a chat message",
+      "steps": [
+        {"kind": "actor", "label": "user", "edge": "opens the chat"},
+        {"kind": "node", "label": "The user types a message and presses send.", "file": "web/chat.ts", "sym": "send()", "status": "same"},
+        {"kind": "node", "label": "The app posts the message and shows the spinner.", "file": "api/router.py", "sym": "handle_reply", "status": "same"},
+        {"kind": "branch", "file": "api/ratelimit.py", "sym": "check_bucket()", "status": "added", "note": "over the limit → 429, and the app shows the wait time"},
+        {"kind": "node", "label": "The reply streams into the chat.", "file": "ai_server/streaming.py", "sym": "flush()", "status": "changed", "edge": "after the count"}
+      ]
+    }
+  ],
   "flows": [
     {
       "title": "Reply request",
@@ -258,6 +278,11 @@
         {"kind": "node", "file": "ai_server/streaming.py", "sym": "flush()", "status": "changed", "edge": "awaited"}
       ]
     }
+  ],
+  "impact": [
+    {"area": "Reply endpoint", "status": "changed", "reach": "Every client that calls POST /v1/reply.", "effect": "A client without a user id now gets 429 for the whole window.", "evidence": "api/router.py — handle_reply"},
+    {"area": "Streaming latency", "status": "changed", "reach": "Every streamed reply.", "effect": "The response closes only after the stream drains.", "evidence": "ai_server/streaming.py — flush()"},
+    {"area": "Replicas", "status": "added", "reach": "The deploy that adds a second process.", "effect": "The bucket lives in memory, so each replica keeps its own count.", "evidence": "api/ratelimit.py — Bucket"}
   ],
   "watch": [
     "The limit is counted after the stream drains. A client that disconnects early is never counted.",
@@ -282,7 +307,9 @@
     ['shape', 'Shape of the change'],
     ['files', 'Per-file'],
     ['arch', 'Architecture'],
+    ['feature', 'Feature flow'],
     ['flow', 'Data flow'],
+    ['impact', 'Impact'],
     ['watch', 'Watch list']
   ];
 
@@ -344,30 +371,49 @@
       nextBlock;
   }
 
-  function perFileTable(rows) {
-    if (!rows || !rows.length) return emptyTable();
-    var body = rows.map(function (r) {
-      var why = String(r.why == null ? '' : r.why);
-      var kind = '';
-      if (/^inferred\s*:/i.test(why)) kind = 'inferred';
-      else if (/^unknown/i.test(why)) kind = 'unknown';
-      return '<tr><td class="f">' + esc(r.file) + '</td>' +
-        '<td class="s">' + chip(r.status) + '</td>' +
-        '<td class="w">' + esc(r.what) + '</td>' +
-        '<td><span class="why ' + kind + '">' + esc(why) + '</span></td></tr>';
-    }).join('');
-    return '<div class="tw"><table><thead><tr><th>File</th><th>Status</th><th>What changed</th><th>Why</th></tr></thead>' +
-      '<tbody>' + body + '</tbody></table></div>';
+  function whyCell(v) {
+    var why = String(v == null ? '' : v);
+    var kind = '';
+    if (/^inferred\s*:/i.test(why)) kind = 'inferred';
+    else if (/^unknown/i.test(why)) kind = 'unknown';
+    return '<td><span class="why ' + kind + '">' + esc(why) + '</span></td>';
   }
 
-  function archTable(rows) {
+  var COLS = {
+    perFile: [
+      { label: 'File', key: 'file', cls: 'f' },
+      { label: 'Status', key: 'status', chip: true },
+      { label: 'What changed', key: 'what', cls: 'w' },
+      { label: 'Why', key: 'why', render: whyCell }
+    ],
+    arch: [
+      { label: 'Area', key: 'area' },
+      { label: 'Before', key: 'before' },
+      { label: 'After', key: 'after' },
+      { label: 'Consequence', key: 'consequence' }
+    ],
+    impact: [
+      { label: 'Area', key: 'area' },
+      { label: 'Status', key: 'status', chip: true },
+      { label: 'Reach', key: 'reach' },
+      { label: 'Effect', key: 'effect' },
+      { label: 'Evidence', key: 'evidence', cls: 'ev' }
+    ]
+  };
+
+  function table(cols, rows) {
     if (!rows || !rows.length) return emptyTable();
+    var head = '<thead><tr>' + cols.map(function (c) {
+      return '<th>' + esc(c.label) + '</th>';
+    }).join('') + '</tr></thead>';
     var body = rows.map(function (r) {
-      return '<tr><td>' + esc(r.area) + '</td><td>' + esc(r.before) + '</td>' +
-        '<td>' + esc(r.after) + '</td><td>' + esc(r.consequence) + '</td></tr>';
+      return '<tr>' + cols.map(function (c) {
+        if (c.render) return c.render(r[c.key], r);
+        if (c.chip) return '<td class="s">' + chip(r[c.key]) + '</td>';
+        return '<td' + (c.cls ? ' class="' + c.cls + '"' : '') + '>' + esc(r[c.key]) + '</td>';
+      }).join('') + '</tr>';
     }).join('');
-    return '<div class="tw"><table><thead><tr><th>Area</th><th>Before</th><th>After</th><th>Consequence</th></tr></thead>' +
-      '<tbody>' + body + '</tbody></table></div>';
+    return '<div class="tw"><table>' + head + '<tbody>' + body + '</tbody></table></div>';
   }
 
   function flow(f) {
@@ -393,7 +439,7 @@
         out += '<div class="node st-' + st + '">' +
           (s.file ? '<span class="path">' + esc(s.file) + '</span>' : '') +
           (s.sym ? '<span class="sym">' + esc(s.sym) + '</span>' : '') +
-          (s.label ? '<span class="sym">' + esc(s.label) + '</span>' : '') +
+          (s.label ? '<span class="label">' + esc(s.label) + '</span>' : '') +
           chip(s.status) + '</div>';
       }
       r.branches.forEach(function (b) {
@@ -414,6 +460,7 @@
   function norm0(v) { return String(v == null ? '' : v).toLowerCase().trim(); }
 
   function main(d) {
+    var feature = (d.featureFlow || []).filter(Boolean).map(flow).join('');
     var flows = (d.flows || []).filter(Boolean).map(flow).join('');
     var watch = d.watch && d.watch.length
       ? '<ul class="watch">' + d.watch.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul>'
@@ -422,10 +469,13 @@
     return '<header class="top"><h1>What this change does</h1>' +
       (sub ? '<p class="sub">' + sub + '</p>' : '') + '</header>' +
       '<section id="shape"><h2>Shape of the change</h2>' + list(d.shape) + '</section>' +
-      '<section id="files"><h2>Per-file</h2>' + perFileTable(d.perFile) + '</section>' +
-      '<section id="arch"><h2>Architecture</h2>' + archTable(d.architecture) + '</section>' +
+      '<section id="files"><h2>Per-file</h2>' + table(COLS.perFile, d.perFile) + '</section>' +
+      '<section id="arch"><h2>Architecture</h2>' + table(COLS.arch, d.architecture) + '</section>' +
+      '<section id="feature"><h2>Feature flow</h2>' +
+        (feature || '<p class="none">none</p>') + '</section>' +
       '<section id="flow"><h2>Data flow</h2>' +
         (flows || '<p class="none">none</p>') + '</section>' +
+      '<section id="impact"><h2>Impact</h2>' + table(COLS.impact, d.impact) + '</section>' +
       '<section id="watch"><h2>Watch list</h2>' + watch + '</section>';
   }
 
