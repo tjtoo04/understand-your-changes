@@ -89,8 +89,8 @@
   h2 { font-size: 19px; font-weight: 600; letter-spacing: -.01em; margin: 0 0 18px; }
   .none { color: var(--muted); font-style: italic; margin: 0; }
 
-  ul.plain { margin: 0; padding-left: 20px; }
-  ul.plain li { margin: 0 0 7px; }
+  ul.plain, ol.plain { margin: 0; padding-left: 20px; }
+  ul.plain li, ol.plain li { margin: 0 0 7px; }
   .lede { font-size: 16.5px; margin: 0 0 16px; max-width: 70ch; }
 
   /* ---------- tables ---------- */
@@ -249,6 +249,13 @@
       "A streamed reply is counted after its last chunk, not when the handler returns."
     ]
   },
+  "how": [
+    "RateLimitMiddleware.handle reads the user id from the token claim, and falls back to the shared bucket anon.",
+    "It builds the counter key from the user id and the start of the 60-second window.",
+    "Counter.incr adds one and returns the new count with the expiry of the window.",
+    "When the count is above 60, the middleware returns 429 with Retry-After and never calls the gateway.",
+    "The stream path increments in the drain handler, so a reply that dies early is still counted."
+  ],
   "shape": [
     "Adds a per-user rate limit in front of the reply endpoint.",
     "Core of the change: api/ratelimit.py, called from api/router.py.",
@@ -314,6 +321,7 @@
   var WORD = { added: 'added', changed: 'changed', same: 'already there', deleted: 'deleted' };
   var NAV = [
     ['does', 'What it does'],
+    ['how', 'How it works'],
     ['shape', 'Shape of the change'],
     ['files', 'Per-file'],
     ['arch', 'Architecture'],
@@ -341,11 +349,12 @@
     var k = norm(status);
     return '<span class="chip ' + k + '">' + GLYPH[k] + ' ' + WORD[k] + '</span>';
   }
-  function list(items) {
+  function list(items, tag) {
     if (!items || !items.length) return '<p class="none">none</p>';
-    return '<ul class="plain">' + items.map(function (t) {
+    tag = tag || 'ul';
+    return '<' + tag + ' class="plain">' + items.map(function (t) {
       return '<li>' + esc(t) + '</li>';
-    }).join('') + '</ul>';
+    }).join('') + '</' + tag + '>';
   }
   function emptyTable() {
     return '<p class="none">none</p>';
@@ -485,6 +494,7 @@
     return '<header class="top"><h1>What this change does</h1>' +
       (sub ? '<p class="sub">' + sub + '</p>' : '') + '</header>' +
       '<section id="does"><h2>What it does</h2>' + doesBlock(d.does) + '</section>' +
+      '<section id="how"><h2>How it works</h2>' + list(d.how, 'ol') + '</section>' +
       '<section id="shape"><h2>Shape of the change</h2>' + list(d.shape) + '</section>' +
       '<section id="files"><h2>Per-file</h2>' + table(COLS.perFile, d.perFile) + '</section>' +
       '<section id="arch"><h2>Architecture</h2>' + table(COLS.arch, d.architecture) + '</section>' +

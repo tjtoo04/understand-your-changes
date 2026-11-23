@@ -63,7 +63,8 @@ The other fields of the report:
 
 | Field          | Rule                                                                        |
 | -------------- | --------------------------------------------------------------------------- |
-| `does`        | The behaviour now, in the user's words. See "What it does" below.                           |
+| `does`         | The behaviour now, in the user's words. See "What it does" below.           |
+| `how`          | The mechanism, in order. See "How it works" below.                          |
 | `architecture` | Rows of `area`, `before`, `after`, `consequence`. The structure that moved. |
 | `featureFlow`  | The path that the user walks. See "Feature flow" below.                     |
 | `flows`        | The path that the data walks. See "Data flow" below.                        |
@@ -86,6 +87,22 @@ Rules:
 - If the change alters no behaviour, write `refactor: no behaviour change` in `summary`, and one bullet that names what must stay the same.
 - Do not repeat `shape`. `shape` names the theme and the core files. `does` names the behaviour.
 - Do not repeat `architecture`. `architecture` names the structure that moved inside. `does` names what the caller sees.
+
+### How it works
+
+`how` states the mechanism. It answers how the code turns the input into the new behaviour, in order.
+
+Give three to six steps as an ordered list. One step for one decision or one action.
+
+Rules:
+- Use the names of the code: the function, the class, the table, the key. `how` may name symbols, `does` may not.
+- State the order. A later step depends on an earlier step, and the reader must see that.
+- Name the branch where the code decides: the condition, the fallback, and the result.
+- Prove each step from the file around the hunk. Do not describe a step that the diff does not reach.
+- Do not repeat `does`. `does` gives the behaviour, `how` gives the route to it.
+- Do not repeat `architecture`. `architecture` gives the before and after of a structure, `how` gives the order of the work inside it.
+- Do not repeat `flows`. `flows` gives the values that hop between symbols, `how` explains the decision in each hop.
+- If the change is data or config only, give the order of the effects.
 
 ### Feature flow
 The feature flow is the path that the user walks to get value. The data flow is the path that the values take through the code. Keep the two apart. The feature flow uses the words of the user. The data flow uses the names of symbols.
@@ -162,7 +179,7 @@ Keep it short. Eight parts, in this order:
 7. The absolute path of the report, on its own line.
 8. The handoff question from Step 6.
 
-The behaviour bullets, the architecture table, the two flows, the impact table, and the watch list stay in the report. Do not print them again in chat. Do not paste the HTML or the JSON.
+The how steps, the behaviour bullets, the architecture table, the two flows, the impact table, and the watch list stay in the report. Do not print them again in chat. Do not paste the HTML or the JSON.
 
 ## Step 6 — Hand off
 Ask one question as the last action: does the user want `/quiz-changes` or `/clarify-changes`?
@@ -175,6 +192,8 @@ Recommend `quiz-changes` when the change set is uncommitted. Else recommend `cla
 Use the structured-question tool when it exists (`rpiv-ask-user-question` in pi). Else ask in plain chat. Offer three options: quiz-changes, clarify-changes, neither. If the user picks neither, stop. Do not ask twice.
 
 ## Common Mistakes
+- `how` walks the diff line by line — give the order of the decisions, in three to six steps.
+- `how` repeats the data flow — show the route to the behaviour, not the value hops.
 - `does` repeats the file table or the architecture table — state behaviour, one bullet for one behaviour.
 - `does` names files or symbols — speak in the words that the user uses.
 - Explaining from the diff alone — read the file around each hunk.
