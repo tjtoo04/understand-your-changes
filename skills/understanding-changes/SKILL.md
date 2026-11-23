@@ -1,6 +1,6 @@
 ---
 name: understanding-changes
-description: Use when the user wants to understand changes before reviewing, committing, or merging them — "explain my changes", "walk me through this diff", "what did this branch actually do", "help me understand this PR", "I forgot what I built". Produces a browser report with a sidebar, a plain-language per-file explanation, architecture notes, a feature flow, a data-flow diagram, and an impact table, each marked to show what already existed, what was added, and what changed. Then it offers to run quiz-changes or clarify-changes. Not a code-quality review, and not a test of the developer's recall.
+description: Use when the user wants to understand changes before reviewing, committing, or merging them — "explain my changes", "walk me through this diff", "what did this branch actually do", "help me understand this PR", "I forgot what I built". Produces a browser report with a sidebar, a plain-language behaviour summary before and after, per-file explanation, architecture notes, a feature flow, a data-flow diagram, and an impact table, each marked to show what already existed, what was added, and what changed. Then it offers to run quiz-changes or clarify-changes. Not a code-quality review, and not a test of the developer's recall.
 ---
 
 # Understanding Changes
@@ -63,11 +63,29 @@ The other fields of the report:
 
 | Field          | Rule                                                                        |
 | -------------- | --------------------------------------------------------------------------- |
+| `does`        | The behaviour now, in the user's words. See "What it does" below.                           |
 | `architecture` | Rows of `area`, `before`, `after`, `consequence`. The structure that moved. |
 | `featureFlow`  | The path that the user walks. See "Feature flow" below.                     |
 | `flows`        | The path that the data walks. See "Data flow" below.                        |
 | `impact`       | The surfaces that the change reaches. See "Impact" below.                   |
 | `watch`        | 3–5 heads-ups. Not a review.                                                |
+
+### What it does
+
+`does` states the behaviour. It answers what the caller or the user gets now that the change has landed.
+
+| Key          | Rule                                                                                         |
+| ------------ | -------------------------------------------------------------------------------------------- |
+| `summary`    | One to three sentences. The behaviour before, then the behaviour after: "Before, X. Now, Y." |
+| `behaviours` | Two to five short bullets. One behaviour in each bullet.                                     |
+
+Rules:
+- Use the words that the user of the product uses. Do not put a file name or a symbol in `summary`.
+- State what now happens, what now fails, or what now costs. Do not walk the code line by line.
+- Prove each bullet with the diff hunk, the file around the hunk, or a test that pins the behaviour. Do not guess.
+- If the change alters no behaviour, write `refactor: no behaviour change` in `summary`, and one bullet that names what must stay the same.
+- Do not repeat `shape`. `shape` names the theme and the core files. `does` names the behaviour.
+- Do not repeat `architecture`. `architecture` names the structure that moved inside. `does` names what the caller sees.
 
 ### Feature flow
 The feature flow is the path that the user walks to get value. The data flow is the path that the values take through the code. Keep the two apart. The feature flow uses the words of the user. The data flow uses the names of symbols.
@@ -134,16 +152,17 @@ Rules:
 - Show the nodes that the change touches, plus the neighbours that give them meaning.
 
 ## Step 5 — Reply in chat
-Keep it short. Seven parts, in this order:
+Keep it short. Eight parts, in this order:
 1. Scope line — the change set, the file count, +X/−Y.
-2. Shape of the change — the bullets from Step 2.
-3. Feature flow — one line. What the user could already do, and where the change lands on that path.
-4. Per-file table — the same four columns as the report.
-5. Impact — one line. The surface with the widest reach, and what it now gets.
-6. The absolute path of the report, on its own line.
-7. The handoff question from Step 6.
+2. What it does — the `summary` field, one or two sentences. The behaviour before, then the behaviour after.
+3. Shape of the change — the bullets from Step 2.
+4. Feature flow — one line. What the user could already do, and where the change lands on that path.
+5. Per-file table — the same four columns as the report.
+6. Impact — one line. The surface with the widest reach, and what it now gets.
+7. The absolute path of the report, on its own line.
+8. The handoff question from Step 6.
 
-The architecture table, the two flows, the impact table, and the watch list stay in the report. Do not print them again in chat. Do not paste the HTML or the JSON.
+The behaviour bullets, the architecture table, the two flows, the impact table, and the watch list stay in the report. Do not print them again in chat. Do not paste the HTML or the JSON.
 
 ## Step 6 — Hand off
 Ask one question as the last action: does the user want `/quiz-changes` or `/clarify-changes`?
@@ -156,6 +175,8 @@ Recommend `quiz-changes` when the change set is uncommitted. Else recommend `cla
 Use the structured-question tool when it exists (`rpiv-ask-user-question` in pi). Else ask in plain chat. Offer three options: quiz-changes, clarify-changes, neither. If the user picks neither, stop. Do not ask twice.
 
 ## Common Mistakes
+- `does` repeats the file table or the architecture table — state behaviour, one bullet for one behaviour.
+- `does` names files or symbols — speak in the words that the user uses.
 - Explaining from the diff alone — read the file around each hunk.
 - Rewriting the template CSS — the template is the design. Change only the JSON.
 - Pasting HTML or JSON into chat — print the path.

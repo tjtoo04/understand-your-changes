@@ -91,6 +91,7 @@
 
   ul.plain { margin: 0; padding-left: 20px; }
   ul.plain li { margin: 0 0 7px; }
+  .lede { font-size: 16.5px; margin: 0 0 16px; max-width: 70ch; }
 
   /* ---------- tables ---------- */
   .tw { overflow-x: auto; }
@@ -240,6 +241,14 @@
   "files": 6,
   "added": 312,
   "removed": 48,
+  "does": {
+    "summary": "Before, every call reached the gateway and nothing counted it. Now each call counts against a 60-request window per user id, so the 61st call in a window gets 429 instead of a reply, and a streamed reply closes only after the stream drains.",
+    "behaviours": [
+      "A user can send 60 messages in a window. The 61st gets 429 and the wait time.",
+      "A client that sends no user id is limited as one shared caller.",
+      "A streamed reply is counted after its last chunk, not when the handler returns."
+    ]
+  },
   "shape": [
     "Adds a per-user rate limit in front of the reply endpoint.",
     "Core of the change: api/ratelimit.py, called from api/router.py.",
@@ -304,6 +313,7 @@
   var GLYPH = { added: '+', changed: '~', same: '=', deleted: '−' };
   var WORD = { added: 'added', changed: 'changed', same: 'already there', deleted: 'deleted' };
   var NAV = [
+    ['does', 'What it does'],
     ['shape', 'Shape of the change'],
     ['files', 'Per-file'],
     ['arch', 'Architecture'],
@@ -377,6 +387,12 @@
     if (/^inferred\s*:/i.test(why)) kind = 'inferred';
     else if (/^unknown/i.test(why)) kind = 'unknown';
     return '<td><span class="why ' + kind + '">' + esc(why) + '</span></td>';
+  }
+
+  function doesBlock(v) {
+    if (!v) return '<p class="none">none</p>';
+    var out = v.summary ? '<p class="lede">' + esc(v.summary) + '</p>' : '';
+    return out + list(v.behaviours);
   }
 
   var COLS = {
@@ -468,6 +484,7 @@
     var sub = [d.repo, d.compare].filter(Boolean).map(esc).join(' — ');
     return '<header class="top"><h1>What this change does</h1>' +
       (sub ? '<p class="sub">' + sub + '</p>' : '') + '</header>' +
+      '<section id="does"><h2>What it does</h2>' + doesBlock(d.does) + '</section>' +
       '<section id="shape"><h2>Shape of the change</h2>' + list(d.shape) + '</section>' +
       '<section id="files"><h2>Per-file</h2>' + table(COLS.perFile, d.perFile) + '</section>' +
       '<section id="arch"><h2>Architecture</h2>' + table(COLS.arch, d.architecture) + '</section>' +
